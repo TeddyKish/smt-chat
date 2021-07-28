@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/select.h>
@@ -17,7 +19,7 @@ int client_descriptors[] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 #define VALIDATE_RESULT(func_result, message) \
         if (func_result != 0) { \
             perror(message); \
-            return func_result; \
+            exit(func_result); \
         }
 
 typedef struct server_info_s
@@ -53,8 +55,10 @@ void setup_server(server_info_t* server_info)
     server_address.sin_addr.s_addr = htonl(INADDR_ANY);
     server_address.sin_port = htons(server_info->port);
 
-    VALIDATE_RESULT(bind(server_info->socket, (socket_address_t*)&server_address, sizeof(server_address)), "Bind failed");
+    VALIDATE_RESULT(bind(server_info->socket, (socket_address_t*) &server_address, sizeof(server_address)), "Bind failed");
     VALIDATE_RESULT(listen(server_info->socket, server_info->max_clients), "Listen failed");
+
+    printf("Server was set-up successfully\n");
 }
 
 void* receive_new_connections(void* arg)
@@ -62,6 +66,8 @@ void* receive_new_connections(void* arg)
     server_info_t* server_info = (server_info_t*)arg;
     int connection_fd = 0;
     
+    printf("Starting to receive connections...\n");
+
     while (1)
     {
         if ((connection_fd = accept(server_info->socket, NULL, NULL)) == -1)
@@ -75,6 +81,7 @@ void* receive_new_connections(void* arg)
         append_client_fd(connection_fd);
         pthread_mutex_unlock(&fd_set_lock);
 
+        printf("SERVER: New user has joined the chat!\n");
         // pthread send message new user joined the chat
     }
 }
@@ -93,7 +100,10 @@ void* broadcast_message(void* arg)
         write(client_descriptors[i], message, strnlen(message, BLOCK_SIZE - 1));
     }
 
+    printf("Successfully broadcasted the message: %s\n", message);
     free(message);
+
+    return NULL;
 }
 
 char* receive_message(int client_fd)
@@ -105,6 +115,8 @@ char* receive_message(int client_fd)
         perror("Reading from user connection failed");
         exit(1);
     }
+
+    printf("Successfully received a message from a client\n");
 
     return client_data;
 }
@@ -123,7 +135,10 @@ int main(int argc, char const *argv[])
     server_info_t* server_info = (server_info_t*)(malloc(sizeof(server_info)));
     server_info->current_sockets = &current_sockets;
     server_info->port = 5000;// parsed from argv server_info->port = port;
-    server_info->max_clients;// parsed from argv server_info->max_clients = max_clients;
+    server_info->max_clients = 10;// parsed from argv server_info->max_clients = max_clients;
+
+    struct timeval second;
+    
 
     setup_server(server_info);
 
@@ -131,11 +146,14 @@ int main(int argc, char const *argv[])
     
     while (1)
     {
+        second.tv_sec = 1;
+        second.tv_usec = 0;
+
         pthread_mutex_lock(&fd_set_lock);
         ready_sockets = current_sockets;
         pthread_mutex_unlock(&fd_set_lock);
-        
-        if (select(server_info->max_clients, &ready_sockets, NULL, NULL, NULL) < 0 ) // later introduce timeout here
+
+        if (select(server_info->max_clients, &ready_sockets, NULL, NULL, &second) < 0 ) // later introduce timeout here
         {
             perror("Select failed");
             exit(1);
@@ -146,7 +164,8 @@ int main(int argc, char const *argv[])
             if (FD_ISSET(i, &ready_sockets))
             {
                 char* received_message = receive_message(i);
-                pthread_create(broadcast_thread, NULL, broadcast_message, (void *)received_message);
+                printf("Received message: %s\n", received_message);
+                pthread_create(&broadcast_thread, NULL, broadcast_message, (void *)received_message);
                 pthread_join(broadcast_thread, NULL);
             }
         }

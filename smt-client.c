@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
     //} 
 
     //int server_ip = 0; //atoi(argv[1]);
-    int server_port = 0; //atoi(argv[2]);
+    int server_port = 5000; //atoi(argv[2]);
 
     int chat_sock = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -26,9 +26,10 @@ int main(int argc, char** argv) {
     chat_server.sin_addr.s_addr = inet_addr("127.0.0.1");
     chat_server.sin_port = server_port;
 
-    if (0 > connect(chat_sock, (struct sockaddr*)&chat_server, sizeof(chat_server))) {
+    if (0 > connect(chat_sock, (struct sockaddr*) &chat_server, sizeof(chat_server))) {
         //error
-        printf("failed to connect");
+        perror("failed to connect");
+        exit(1);
     }
 
     while(1){
