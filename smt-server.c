@@ -107,7 +107,6 @@ void* receive_new_connections(void* arg)
         pthread_mutex_unlock(&fd_set_lock);
 
         printf("SERVER: New user has joined the chat!\n");
-        // pthread send message new user joined the chat
     }
 }
 
@@ -119,12 +118,12 @@ void* send_message(void* arg)
     // Instead of waiting for all of the send_message threads to complete after every message, we can instead use mutexes.
     // With the introduction of mutexes for each message, we can guarantee that the server will never block.
     // However, the information may be received out-of-order in some clients (for example, several send_messages contending for the same mutex).
-    pthread_mutex_lock(&client_mutexes[message_info->receiver_index]);
+    //pthread_mutex_lock(&client_mutexes[message_info->receiver_index]);
     char s_num[6];
     snprintf(s_num, 6, "%d: ", message_info->sender_fd);
     write(client_descriptors[message_info->receiver_index], s_num, strnlen(s_num, BLOCK_SIZE - 1));
     write(client_descriptors[message_info->receiver_index], message_info->message, strnlen(message_info->message, BLOCK_SIZE - 1));
-    pthread_mutex_unlock(&client_mutexes[message_info->receiver_index]);
+    //pthread_mutex_unlock(&client_mutexes[message_info->receiver_index]);
     
     free(message_info);
 
@@ -180,7 +179,7 @@ int main(int argc, char const *argv[])
         for (int i = 0; i < server_info.max_clients; i++)
         {
             if (FD_ISSET(i, &ready_sockets))
-           {
+            {
                 char* received_message = receive_message(i);
 
                 for (int j = 0; i < sizeof(client_descriptors); j++)
